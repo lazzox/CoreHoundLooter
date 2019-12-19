@@ -1,0 +1,13 @@
+<Ui>
+  <Script File="CoreHoundLooter.lua"/>
+  <Frame name="CoreHoundLooterFrame">
+    <Scripts>
+      <OnLoad>
+				self:RegisterEvent("CHAT_MSG_ADDON");
+				self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED");
+				self:RegisterEvent("PLAYER_LOGIN");
+      </OnLoad>
+      <OnEvent function="CHL_OnEvent"></OnEvent>
+    </Scripts>
+  </Frame>
+</Ui>
