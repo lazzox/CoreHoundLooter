@@ -6,10 +6,8 @@ CHL_MASTERLOOTER_WISPER_ENABLE = true -- Controls if master looter will wisper t
 CHL_GROUP_CHAT_LOOTER_ANNOUNCMENT = false	-- Controls if master looter will announce the name of the looter in chat
 
 -- Helper variables
-CHL_SKINNING_TARGETS = { "Core Hound", "Ancient Core Hound" }
 CHL_PLAYERS_WITH_ADDON = {}
 CHL_PLAYERS_WITHOUT_ADDON = {}
-CHL_MOOBLOOTLIST = {}
 
 -- Fixed variables
 SLASH_CHL1 = "/chl"
@@ -39,14 +37,10 @@ function chlCallback(duration, callback)
     end)
 end
 
-function chlSplitString(inputstr, sep)
-    if sep == nil then
-        sep = "%s"
-    end
-
+function chlSplitString(inputstr, separator)
     local t = {}
 
-    for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+    for str in string.gmatch(inputstr, "([^" .. separator .. "]+)") do
         table.insert(t, str)
     end
 
@@ -67,13 +61,11 @@ end
 
 -- END FUNCTION SECTION
 
-
-
 function SlashCmdList.CHL(msg)
     if msg == "" or msg == "help" then
         CHL_PrintHelp()
     elseif msg == "pwa" then
-        CHL_ShowPlayersWithAddon()
+        CHL_ShowPlayersWithoutAddon()
 	elseif msg == "whispers enable" then
 		CHL_MASTERLOOTER_WISPER_ENABLE = true
 		print("Master looter will be whispering people to loot.")
@@ -127,84 +119,83 @@ function CHL_OnEvent(self, event, ...)
         end
 
         -- Loot event is happening
+		chlCallback(1, function()
+			local moobName = text
+			local _, playerIsMasterLooter = GetLootMethod();
+				
+			-- If it is a skinning target print it out to party or raid channel
+			if CHL_LOOT_MESSAGES_ENABLED == true then
+				print("|c00FFAA00" .. sender .. " can loot the " .. moobName .."|r")
+			end
+								
+			if playerIsMasterLooter == 0 then
+				if CHL_MASTERLOOTER_WISPER_ENABLE == true then 
+					SendChatMessage("Please loot the " .. moobName, "WHISPER", nil, sender)
+				end
+				-- Master looter announces whos turn it is to loot
+				if CHL_GROUP_CHAT_LOOTER_ANNOUNCMENT == true then
+					SendChatMessage(sender .. "'s turn to loot the " .. moobName, chl_groupType())
+				end
+			end
 
-        if CHL_MOOBLOOTLIST[text] ~= nil then
-            CHL_MOOBLOOTLIST[text] = CHL_MOOBLOOTLIST[text] + 1
-        else
-            CHL_MOOBLOOTLIST[text] = 1
-
-            chlCallback(1, function()
-                local tableSplitResult = chlSplitString(text, ':')
-                local moobName = tableSplitResult[1]
-                local _, playerIsMasterLooter = GetLootMethod();
-
-                if CHL_MOOBLOOTLIST[text] == 1 then
-					-- Check if it is a skinning target
-                    if isContainedIn(CHL_SKINNING_TARGETS, moobName) then
-						-- If it is a skinning target print it out to party or raid channel
-						if CHL_LOOT_MESSAGES_ENABLED == true then
-							print("|c00FFAA00" .. sender .. " can loot the " .. moobName .."|r")
-						end
-											
-                        if playerIsMasterLooter == 0 then
-							if CHL_MASTERLOOTER_WISPER_ENABLE == true then 
-								SendChatMessage("Please loot the " .. moobName, "WHISPER", nil, sender)
-							end
-							-- Master looter announces whos turn it is to loot
-							if CHL_GROUP_CHAT_LOOTER_ANNOUNCMENT == true then
-								SendChatMessage(sender .. "'s turn to loot the " .. moobName, chl_groupType())
-							end
-                        end
-                    end
-                end
-            end)
-        end
+		end)
+		
+	-- Triggers on (unfiltered) combat log event 
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
 		-- Returns the loot method
         local lootMethod, _, _ = GetLootMethod()
 
-	
+		-- Only work in 'master loot' mode protection
         if lootMethod == "master" then
-            local time, eventName, _, _, _, _, _, destGuid, destName = CombatLogGetCurrentEventInfo()
-            local creatureDied = string.sub(destGuid, 1, 8) == "Creature"
-
-            if eventName == "UNIT_DIED" and creatureDied then
-
+            local timestamp, eventName, hideCaster, sourceGuid , sourceName, sourceFlags, sourceRaidFlags, destGuid, destName = CombatLogGetCurrentEventInfo()
+            --destGuid format =  [Unit type]-0-[server ID]-[instance ID]-[zone UID]-[ID]-[spawn UID]
+			local guidSplitResult = chlSplitString(destGuid, '-')
+			local unitType = guidSplitResult[1] == "Creature"
+			local zoneUID = guidSplitResult[5]  == "12230"  --[[ MoltenCore ZoneID is 12230 ]]
+			-- local zoneUID = guidSplitResult[5]  == "411"  --[[ Durotar ZoneID is 411 ]] -- This is used for testing the addon on Elder Mottled Boar/Bloodtalon Scythemaw in Durotar
+			local creatureID = guidSplitResult[6]
+			-- local spawnID = guidSplitResult[7]
+						
+			-- Check if creature died and if it died in the right zone ID
+            if eventName == "UNIT_DIED" and unitType and zoneUID then
                 chlCallback(1, function()
                     local hasLoot, _ = CanLootUnit(destGuid)
     
+					-- Check if creature can be looted
                     if hasLoot then
-                        C_ChatInfo.SendAddonMessage("CHL", destName .. ":" .. destGuid, chl_groupType())
+						-- Check if creature matched GUID
+						if creatureID == "11673" --[[ Ancient Core Hound ]] or creatureID == "11671" --[[ Core Hound ]] then 
+						-- if creatureID == "3100" --[[ Elder Mottled Boar ]] or creatureID == "3123" --[[ Bloodtalon Scythemaw ]] then -- This is used for testing the addon on Elder Mottled Boar/Bloodtalon Scythemaw in Durotar
+							C_ChatInfo.SendAddonMessage("CHL", destName , chl_groupType())
+						end
                     end
                 end)
             end
         end
 		
-	-- On player login event register prefix
+	-- Triggers on player login event register prefix
     elseif event == "PLAYER_LOGIN" then
         C_ChatInfo.RegisterAddonMessagePrefix("CHL")
     end
 end
 
 function CHL_PrintHelp()
-    print("The following commands are available for C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r")
-    print("/chl -- Shows help")
-    print("/chl pwa -- Shows people with addon enabled in your group")
-    print("/chl loot show/hide -- Shows/hides loot messages to you (default - show)")
+	print("The following commands are available for C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r")
+	print("/chl -- Shows help")
+	print("/chl pwa -- Shows people with addon enabled in your group")
+	print("/chl loot show/hide -- Shows/hides loot messages to you (default - show)")
 	print("/chl whispers enable/disable -- Enables/disables whispering people [affects only master looter] (default - enable)")
 	print("/chl status -- Prints out current settings")
 	print("/chl announcements enable/disable -- Announces looter in group chat [affects only master looter] (default - disable)")
 end
 
-function CHL_ShowPlayersWithAddon()
+function CHL_ShowPlayersWithoutAddon()
+	
 	-- Sending DISCOVER message in addon chat
     C_ChatInfo.SendAddonMessage("CHL", "DISCOVER", chl_groupType())
-
-    chlCallback(1, function()
-		-- Print out players with addon
-        print("The following players have C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r installed and enabled:")
-        table.foreach(CHL_PLAYERS_WITH_ADDON, print)
-        
+	
+	-- Using delay so that we can register all the responses 
+    chlCallback(1, function()      
 		if not IsInRaid() then return end
 		
 		-- Get names of all players in group
@@ -219,8 +210,12 @@ function CHL_ShowPlayersWithAddon()
 		end
 		
 		-- Print out players without addon
-		print("The following players |cffff0000don't|r have C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r installed:")
-		table.foreach(CHL_PLAYERS_WITHOUT_ADDON, print)
+		if not CHL_PLAYERS_WITHOUT_ADDON == nil then
+			print("The following players |cffff0000don't|r have C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r installed:")
+			table.foreach(CHL_PLAYERS_WITHOUT_ADDON, print)
+		else
+			print("Everyone in group has C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r installed!")
+		end 
 		
 		-- Clean variables
 		CHL_PLAYERS_WITH_ADDON = {}
