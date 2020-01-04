@@ -8,6 +8,7 @@ CHL_GROUP_CHAT_LOOTER_ANNOUNCMENT = false	-- Controls if master looter will anno
 -- Helper variables
 CHL_PLAYERS_WITH_ADDON = {}
 CHL_PLAYERS_WITHOUT_ADDON = {}
+CHL_VERSION = "1.4.0"
 
 -- Fixed variables
 SLASH_CHL1 = "/chl"
@@ -180,7 +181,7 @@ function CHL_OnEvent(self, event, ...)
 end
 
 function CHL_PrintHelp()
-	print("The following commands are available for C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r")
+	print("The following commands are available for C|cffff0000ore|rH|cffff0000ound|rL|cffff0000ooter|r " .. CHL_VERSION)
 	print("/chl -- Shows help")
 	print("/chl pwa -- Shows people with addon enabled in your group")
 	print("/chl loot show/hide -- Shows/hides loot messages to you (default - show)")
