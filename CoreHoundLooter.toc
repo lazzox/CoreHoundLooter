@@ -2,7 +2,7 @@
 ## Title: C|cffff0000ore|r H|cffff0000ound|r L|cffff0000ooter|r
 ## Author: Lazzo-Bloodfang
 ## Notes: Addon that helps with Core Hound Looting
-## Version: 1.4.0
+## Version: 1.5.1
 ## DefaultState: enabled
 CoreHoundLooter.xml
 CoreHoundLooter.lua
